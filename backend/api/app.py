@@ -56,7 +56,7 @@ def create_app(settings: AppSettings, runtime_factory: Callable[[AppSettings], R
     throttle = LoginThrottle()
     app = FastAPI(title="Trading Bot", docs_url=None, redoc_url=None, openapi_url=None)
     app.add_middleware(SessionMiddleware, secret_key=settings.dashboard_secret_key.get_secret_value(),
-                       session_cookie="tb_session", max_age=12 * 3600, same_site="strict",
+                       session_cookie="tb_session", max_age=12 * 3600, same_site="lax",
                        https_only=settings.dashboard_cookie_secure)
     app.state.runtime = runtime
 
@@ -66,6 +66,9 @@ def create_app(settings: AppSettings, runtime_factory: Callable[[AppSettings], R
         resp.headers["X-Content-Type-Options"] = "nosniff"
         resp.headers["X-Frame-Options"] = "DENY"
         resp.headers["Referrer-Policy"] = "no-referrer"
+        resp.headers["Content-Security-Policy"] = (
+            "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
         resp.headers["Cache-Control"] = "no-store"
         return resp
 
@@ -112,18 +115,27 @@ def create_app(settings: AppSettings, runtime_factory: Callable[[AppSettings], R
 
     # --- Kite daily login (OAuth-style redirect) -----------------------------------
     @app.get("/auth/kite/login")
-    def kite_login(u: str = Depends(user)) -> RedirectResponse:
+    def kite_login(request: Request, u: str = Depends(user)) -> RedirectResponse:
+        from urllib.parse import quote
+
         from backend.brokers.zerodha import login_url
 
         if settings.kite_api_key is None:
             raise HTTPException(400, "TB_KITE_API_KEY not configured")
-        return RedirectResponse(login_url(settings.kite_api_key.get_secret_value()))
+        # One-time state, returned by Kite via redirect_params, ties the callback to this login.
+        state = secrets.token_urlsafe(16)
+        request.session["kite_state"] = state
+        url = login_url(settings.kite_api_key.get_secret_value())
+        return RedirectResponse(f"{url}&redirect_params={quote(f'state={state}')}")
 
     @app.get("/auth/kite/callback")
-    def kite_callback(request: Request, request_token: str = "", status: str = "",
+    def kite_callback(request: Request, request_token: str = "", status: str = "", state: str = "",
                       u: str = Depends(user)) -> RedirectResponse:
         from backend.brokers.zerodha import exchange_request_token
 
+        expected = request.session.pop("kite_state", None)
+        if not expected or not secrets.compare_digest(state, expected):
+            raise HTTPException(400, "login state mismatch: start the Kite login from the dashboard")
         if status != "success" or not request_token.isalnum():
             raise HTTPException(400, "login was not successful")
         if settings.kite_api_key is None or settings.kite_api_secret is None:

@@ -83,3 +83,42 @@ def test_live_mode_refused(tmp_path):
 def test_api_refuses_to_start_without_auth_config(tmp_path):
     with pytest.raises(RuntimeError):
         create_app(AppSettings(_env_file=None, database_url=f"sqlite:///{tmp_path}/y.db"))
+
+
+
+def test_kite_login_flow_requires_matching_state(tmp_path, monkeypatch):
+    from urllib.parse import parse_qs, unquote, urlparse
+
+    import backend.brokers.zerodha as z
+
+    monkeypatch.chdir(tmp_path)
+    s = AppSettings(_env_file=None, database_url=f"sqlite:///{tmp_path}/api.db", kite_api_key="x",
+                    kite_api_secret="y", dashboard_secret_key="k" * 40,
+                    dashboard_password_hash=hash_password(PW, n=2**10))
+    from backend.database.models import Base
+    from backend.database.session import make_engine
+    Base.metadata.create_all(make_engine(s.database_url))
+    c = TestClient(create_app(s, frontend_dir=tmp_path / "none"))
+    monkeypatch.setattr(z, "login_url", lambda key: "https://kite.zerodha.com/connect/login?v=3&api_key=x")
+    exchanged = []
+    monkeypatch.setattr(z, "exchange_request_token", lambda k, sec, t: exchanged.append(t) or "tok")
+    started = []
+    monkeypatch.setattr(Runtime, "start_with_token", lambda self, tok: started.append(tok))
+    _login(c)
+
+    def new_state():
+        r = c.get("/auth/kite/login", follow_redirects=False)
+        assert r.status_code in (302, 307)
+        q = parse_qs(urlparse(r.headers["location"]).query)
+        return parse_qs(unquote(q["redirect_params"][0]))["state"][0]
+
+    state = new_state()
+    assert c.get("/auth/kite/callback?status=success&request_token=abc&state=bad",
+                 follow_redirects=False).status_code == 400
+    # single use: the failed attempt consumed it
+    assert c.get(f"/auth/kite/callback?status=success&request_token=abc&state={state}",
+                 follow_redirects=False).status_code == 400
+    assert exchanged == [] and started == []
+    state = new_state()
+    r = c.get(f"/auth/kite/callback?status=success&request_token=abc&state={state}", follow_redirects=False)
+    assert r.status_code in (302, 307) and exchanged == ["abc"] and started == ["tok"]

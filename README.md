@@ -18,26 +18,60 @@ A disciplined, test-first system that **only buys** CE/PE options on NSE index o
 | Phase | Scope | State |
 | --- | --- | --- |
 | 1 | Architecture, roadmap, risk analysis ([plan](docs/PLAN.md)) | Done |
-| 2 | Project setup, config, database, logging | In review |
-| 3 | Broker layer + Kite market data | Next |
-| 4–10 | Signals, risk/execution, paper + dashboard, backtests, audits, paper run, (optional) LIVE | Planned |
+| 2 | Project setup, config, database, logging | Done |
+| 3 | Zerodha broker layer, instruments, live tick feed, candles, data health | Done |
+| 4 | Indicators, Greeks, ORB strategy, contract selection, 0–100 score | Done |
+| 5 | Risk engine, idempotent order manager, exits, reconciliation | Done |
+| 6 | Paper broker, trading engine, alerts, dashboard | Done |
+| 7 | Backtester and walk-forward ([testing](docs/TESTING.md)) | Done |
+| 8 | Security, risk and failure audit ([audit](docs/AUDIT.md)) | Done |
+| 9 | 4+ weeks of PAPER trading on real data | **Your turn** |
+| 10 | LIVE | Locked in this build |
 
-## Quick start (local, SQLite)
+## Before the first run
+
+1. **Fill the NSE holiday list** in `config/nse_calendar.yaml` from the official NSE circular.
+   Until a year is filled, the bot refuses to trade in that year (by design).
+2. Subscribe to the **Kite Connect** plan (the free Personal plan has no market data).
+   In the Kite developer console set the redirect URL to
+   `http://127.0.0.1:8000/auth/kite/callback`.
+3. Create `.env` from `.env.example` and fill it **on your own machine**:
+   `TB_KITE_API_KEY`, `TB_KITE_API_SECRET`, `TB_DASHBOARD_SECRET_KEY` (any long random string),
+   `TB_DASHBOARD_PASSWORD_HASH` (from `python -m scripts.hash_password`), optional Telegram/email.
+   Never paste these into chats, issues or commits.
+
+## Run paper trading
 
 ```bash
 python3 -m venv .venv && . .venv/bin/activate
 pip install -r requirements-dev.txt
-cp .env.example .env          # fill locally; never commit
+(cd frontend && npm ci && npm run build)   # dashboard
 alembic upgrade head
 python -m scripts.check_config
-pytest -q
+python -m scripts.run_server               # http://127.0.0.1:8000
+```
+
+Each trading morning: open the dashboard, sign in, press **Log in to Kite** and complete
+Zerodha's login (2FA). Kite tokens last one trading day, so this is a daily step.
+The engine then runs in PAPER mode: real live prices, virtual money.
+
+Notes:
+- The NIFTY index has no volume, so analysis uses the **near-month NIFTY futures** candles as
+  data only. The bot never trades futures; strikes come from the NIFTY 50 spot.
+- LIVE mode is **locked** in this build: the server refuses to start in LIVE.
+- Backtesting: see [docs/TESTING.md](docs/TESTING.md). Option prices there are modelled.
+
+## Tests
+
+```bash
+pytest -q && ruff check backend scripts
 ```
 
 ## With Docker (PostgreSQL)
 
 ```bash
-cp .env.example .env          # set POSTGRES_PASSWORD
-docker compose up --build
+cp .env.example .env          # set POSTGRES_PASSWORD and the values above
+docker compose up --build     # dashboard on http://127.0.0.1:8000
 ```
 
 ## Configuration
@@ -53,8 +87,13 @@ backend/
   core/         config, IST clock, NSE calendar
   database/     SQLAlchemy models, session, Alembic migrations
   logging/      JSON logging with secret redaction
-  brokers/ market_data/ indicators/ strategies/ signals/ options/
-  risk/ execution/ positions/ backtesting/ notifications/ api/   (later phases)
+  brokers/      Zerodha (Kite), paper broker, Angel One / Upstox stubs
+  market_data/  instruments, tick feed, candles, data health
+  indicators/ options/ strategies/   analysis, Greeks, contract selection, ORB strategy
+  risk/ execution/ positions/        risk engine, order manager, exits, reconciliation
+  services/     trading engine, runtime, metrics
+  backtesting/  event-driven backtester, walk-forward
+  notifications/ api/                Telegram/email alerts, dashboard API
   tests/
-config/  docker/  docs/  scripts/  frontend/ (Phase 6)
+config/  docker/  docs/  scripts/  frontend/ (Next.js dashboard)
 ```

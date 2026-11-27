@@ -289,10 +289,21 @@ class TradingEngine:
         rep = reconcile(local, positions)
         for sym, (mine, theirs) in rep.adjusted.items():
             self._risk_event("POSITION_MISMATCH", f"{sym}: local {mine}, broker {theirs}; adopting broker")
-            for t in self.open.values():
+            for t in list(self.open.values()):
                 if t.inst.tradingsymbol == sym:
                     t.plan.quantity = theirs
                     if theirs == 0:
+                        if t.exit_qty < t.original_qty:
+                            # Closed outside the bot: the real exit price is unknown here. Book the
+                            # missing quantity at the stop price (worst planned case) so the loss
+                            # limits are never understated, and ask the user to check.
+                            missing = t.original_qty - t.exit_qty
+                            t.exit_value += t.plan.stop * missing
+                            t.exit_qty += missing
+                            t.exit_charges += leg_charges(self.rates, t.plan.stop, missing, False)
+                            self._risk_event("EXIT_PRICE_UNKNOWN", f"{sym} closed outside the bot; booked "
+                                             f"{missing} at stop {t.plan.stop} (conservative). Check broker.",
+                                             "critical")
                         self._close_trade(t, "reconciled_flat")
         if rep.critical:
             self._risk_event("RECONCILE_CRITICAL", f"shorts={rep.shorts} unknown={rep.unknown_at_broker}",
