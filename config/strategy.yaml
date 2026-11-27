@@ -1,0 +1,43 @@
+# Opening-range breakout (ORB) with VWAP + 15-min trend confirmation. NIFTY weekly options.
+# These are conservative starting points for paper testing, NOT optimised values.
+# Change them only on out-of-sample evidence (see docs/TESTING.md).
+
+signal:
+  underlying: NIFTY
+  underlying_exchange: NSE
+  options_exchange: NFO
+  opening_range_end: "09:30"   # opening range = 09:15-09:30
+  signal_minutes: 5            # breakout judged on completed 5-min closes
+  trend_minutes: 15            # higher-timeframe trend filter
+  min_relative_volume: 1.5     # 5-min volume vs average of previous 20 bars
+  rvol_lookback: 20
+  rsi_ce_band: [55, 75]        # bullish but not exhausted
+  rsi_pe_band: [25, 45]
+  breakout_max_age_bars: 2     # only fresh breakouts
+  min_room_to_stop_ratio: 1.5  # distance to next level >= 1.5 x stop distance
+  invalidation_atr_buffer: 0.1 # underlying stop = range edge -/+ 0.1 x ATR(5m)
+  max_vix: 25                  # skip new entries above this India VIX (if VIX available)
+  max_gap_pct: 1.0             # skip day on gaps larger than 1%
+
+contract:
+  max_itm_steps: 1             # ATM, or one strike in-the-money; never OTM
+  min_atm_premium: 40          # if ATM premium is below this, use 1 strike ITM
+  max_spread_pct: 0.01         # bid-ask spread <= 1% of mid
+  max_spread_abs: 1.0          # and <= Rs 1
+  max_quote_age_seconds: 5
+  max_last_trade_age_seconds: 10
+  min_volume: 100000           # contracts traded today (units, not lots)
+  min_oi: 50000
+  delta_band: [0.45, 0.65]     # absolute delta, when IV can be solved
+  risk_free_rate: 0.065        # for Black-Scholes delta only
+  max_ltp_outside_book_pct: 0.05
+
+exits:
+  stop_premium_pct: 0.25       # hard stop: 25% of entry premium (or tighter underlying stop)
+  target_r: 2.0
+  breakeven_at_r: 1.0
+  partial_at_r: 1.5            # book half at 1.5R when >= 2 lots; null to disable
+  trail_after_partial_pct: 0.15
+  time_stop_minutes: 30        # exit if not +0.5R within 30 min
+  time_stop_min_r: 0.5
+  exit_on_vwap_cross: true     # 5-min close back across VWAP invalidates the trade

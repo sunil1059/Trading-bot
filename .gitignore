@@ -13,3 +13,6 @@ data/
 !.env.example
 node_modules/
 .next/
+frontend/out/
+frontend/next-env.d.ts
+frontend/*.tsbuildinfo

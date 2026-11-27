@@ -1,0 +1,10 @@
+# Zerodha F&O options charges. Source: https://zerodha.com/charges/ (checked 2026-11-27).
+# Statutory rates change with budgets/circulars: re-check this page and update as_of.
+as_of: 2026-11-27
+brokerage_per_order: 20          # flat Rs 20 per executed order
+stt_sell_pct: 0.15               # % of premium, sell side only (exercise not modelled: we never hold to expiry)
+exchange_txn_pct: 0.03553        # NSE, % of premium, both sides
+sebi_per_crore: 10               # Rs 10 per crore of turnover, both sides
+stamp_buy_pct: 0.003             # % of premium, buy side
+ipft_per_crore: 0.01             # NSE IPFT, Rs per crore of premium, both sides (+GST)
+gst_pct: 18                      # on brokerage + exchange txn + SEBI + IPFT

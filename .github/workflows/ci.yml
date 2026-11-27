@@ -4,7 +4,7 @@ on:
     branches: [main]
   pull_request:
 jobs:
-  test:
+  backend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -14,4 +14,20 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - run: ruff check backend scripts
       - run: pytest -q
-      - run: pip-audit -r requirements.txt
+      # autobahn is hard-pinned by kiteconnect; both advisories are server-side. See docs/AUDIT.md.
+      - run: pip-audit -r requirements.txt --ignore-vuln PYSEC-2020-25 --ignore-vuln PYSEC-2026-4027
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npm audit --audit-level=high

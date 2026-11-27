@@ -45,6 +45,7 @@ class HardCeilings:
     MAX_DAILY_LOSS_PCT = 0.06
     MAX_TRADES_PER_DAY = 5
     MAX_OPEN_POSITIONS = 2
+    MAX_LOTS_PER_TRADE = 2
     MAX_CONSECUTIVE_LOSSES_STOP = 3
     EARLIEST_ENTRY = time(9, 20)
     LATEST_ENTRY = time(14, 45)
@@ -89,6 +90,8 @@ class CapitalLimits(_Strict):
 class TradeLimits(_Strict):
     max_trades_per_day: int = Field(ge=1, le=HardCeilings.MAX_TRADES_PER_DAY)
     max_open_positions: int = Field(ge=1, le=HardCeilings.MAX_OPEN_POSITIONS)
+    max_lots_per_trade: int = Field(1, ge=1, le=HardCeilings.MAX_LOTS_PER_TRADE,
+                                    description="Fixed size cap. Never scaled up after wins or losses.")
     pause_after_consecutive_losses: int = Field(ge=1)
     pause_minutes: int = Field(ge=0)
     stop_after_consecutive_losses: int = Field(ge=1, le=HardCeilings.MAX_CONSECUTIVE_LOSSES_STOP)
@@ -164,6 +167,16 @@ class AppSettings(BaseSettings):
     telegram_bot_token: SecretStr | None = None
     telegram_chat_id: str | None = None
     dashboard_secret_key: SecretStr | None = None
+    dashboard_password_hash: SecretStr | None = None  # generate with: python -m scripts.hash_password
+    dashboard_cookie_secure: bool = False  # set true when served over HTTPS
+    api_host: str = "127.0.0.1"  # localhost only by default
+    api_port: int = 8000
+
+    smtp_host: str | None = None
+    smtp_port: int = 465
+    smtp_user: str | None = None
+    smtp_password: SecretStr | None = None
+    alert_email_to: str | None = None
 
     def live_mode_allowed(self) -> bool:
         """Static precondition only. Runtime checks (auth, health, calendar, user
