@@ -12,6 +12,7 @@ capital:
 trades:
   max_trades_per_day: 3        # ceiling 5
   max_open_positions: 1        # ceiling 2
+  max_lots_per_trade: 1        # fixed size cap; ceiling 2. Never increased after wins/losses
   pause_after_consecutive_losses: 2
   pause_minutes: 30
   stop_after_consecutive_losses: 3   # ceiling 3

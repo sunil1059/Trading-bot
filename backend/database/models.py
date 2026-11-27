@@ -6,7 +6,7 @@ ENTRY order must be a BUY, so a bug higher up cannot persist a short-opening ord
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from enum import StrEnum
 from typing import Any
@@ -26,13 +26,38 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.types import TypeDecorator
 
 Money = Numeric(14, 2)
 Price = Numeric(12, 2)
 
 
+class UTCDateTime(TypeDecorator):
+    """Stores aware datetimes as UTC and always returns aware (UTC) datetimes.
+
+    SQLite drops tzinfo; without this, naive values would be misread as local time.
+    Naive datetimes are rejected on write.
+    """
+
+    impl = DateTime(timezone=True)
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):  # type: ignore[no-untyped-def]
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            raise ValueError("naive datetime cannot be stored")
+        value = value.astimezone(UTC)
+        return value.replace(tzinfo=None) if dialect.name == "sqlite" else value
+
+    def process_result_value(self, value, dialect):  # type: ignore[no-untyped-def]
+        if value is None:
+            return None
+        return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
+
+
 class Base(DeclarativeBase):
-    type_annotation_map = {dict[str, Any]: JSON, datetime: DateTime(timezone=True)}
+    type_annotation_map = {dict[str, Any]: JSON, datetime: UTCDateTime()}
 
 
 # --- enums stored as strings -------------------------------------------------
@@ -288,3 +313,22 @@ class BacktestRun(Base):
     is_out_of_sample: Mapped[bool]
     params: Mapped[dict[str, Any]]
     metrics: Mapped[dict[str, Any]]
+
+
+class RiskStateRow(Base):
+    """Latest risk-engine state per mode, so locks and counters survive restarts."""
+
+    __tablename__ = "risk_state"
+
+    mode: Mapped[str] = mapped_column(String(16), primary_key=True)
+    updated_at: Mapped[datetime]
+    state: Mapped[dict[str, Any]]
+
+
+class PositionPlan(Base):
+    """Exit plan (stop/target/flags) for an open position, persisted for restarts."""
+
+    __tablename__ = "position_plans"
+
+    position_id: Mapped[int] = mapped_column(ForeignKey("positions.id"), primary_key=True)
+    plan: Mapped[dict[str, Any]]

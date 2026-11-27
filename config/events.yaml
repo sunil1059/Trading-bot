@@ -1,0 +1,6 @@
+# Scheduled high-impact event days on which the bot opens NO new trades.
+# Maintain by hand from official sources (RBI policy dates, Union Budget, etc.).
+# Format:
+# events:
+#   - {date: 2027-02-01, name: Union Budget}
+events: []

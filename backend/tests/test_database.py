@@ -5,7 +5,7 @@ from decimal import Decimal
 
 import pytest
 from sqlalchemy import inspect
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, StatementError
 
 from backend.core.clock import IST
 from backend.database.models import Base, Order, Position
@@ -76,3 +76,17 @@ def test_alembic_migration_matches_models(tmp_path):
     assert migrated == set(Base.metadata.tables)
     r = subprocess.run([sys.executable, "-m", "alembic", "check"], env=env, capture_output=True, text=True)
     assert r.returncode == 0, r.stdout + r.stderr
+
+
+def test_datetimes_come_back_timezone_aware(db_session):
+    db_session.add(_order())
+    db_session.commit()
+    db_session.expire_all()
+    o = db_session.query(Order).one()
+    assert o.created_at.tzinfo is not None and o.created_at == NOW
+
+
+def test_naive_datetime_rejected(db_session):
+    db_session.add(_order(created_at=datetime(2030, 1, 1, 10, 0)))
+    with pytest.raises(StatementError):
+        db_session.commit()
