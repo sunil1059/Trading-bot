@@ -1,0 +1,34 @@
+# Risk and trading limits. All amounts in INR.
+# Values are validated against hard ceilings in backend/core/config.py (HardCeilings).
+# A value looser than a ceiling makes the bot refuse to start.
+
+capital:
+  total_capital: 100000        # virtual capital for paper trading
+  max_capital_per_trade: 15000 # premium x quantity; ceiling 25% of capital
+  max_loss_per_trade: 2500     # incl. charges + slippage; ceiling 3% of capital
+  max_daily_loss: 5000         # realised + MTM; ceiling 6% of capital
+  max_weekly_loss: 10000       # pauses until manual reset
+
+trades:
+  max_trades_per_day: 3        # ceiling 5
+  max_open_positions: 1        # ceiling 2
+  pause_after_consecutive_losses: 2
+  pause_minutes: 30
+  stop_after_consecutive_losses: 3   # ceiling 3
+  same_direction_reentry_cooldown_minutes: 15
+
+session:                       # Asia/Kolkata
+  first_entry: "09:30"         # not before 09:20
+  last_entry: "14:30"          # not after 14:45
+  square_off: "15:10"          # not after 15:15
+  allow_overnight: false       # must stay false in v1
+  allow_expiry_day_entries: false
+
+orders:
+  entry_slippage_pct: 0.005    # limit price = ask * (1 + this); ceiling 2%
+  entry_timeout_seconds: 10    # cancel unfilled entry after this
+  exit_slippage_pct: 0.01
+  exit_timeout_seconds: 5
+
+emergency_exit_policy: exit_all  # exit_all | keep_stops
+min_signal_score_for_entry: 75

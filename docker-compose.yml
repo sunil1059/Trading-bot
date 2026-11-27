@@ -1,0 +1,29 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: trading_bot
+      POSTGRES_USER: bot
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"   # localhost only
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bot -d trading_bot"]
+      interval: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    env_file: .env
+    environment:
+      TB_DATABASE_URL: postgresql+psycopg://bot:${POSTGRES_PASSWORD}@db:5432/trading_bot
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

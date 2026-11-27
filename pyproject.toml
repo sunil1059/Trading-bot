@@ -1,0 +1,21 @@
+[project]
+name = "trading-bot"
+version = "0.1.0"
+description = "Long-only Indian index options (CE/PE buying) trading system. Paper trading first; LIVE disabled by default."
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = ["backend/database/migrations/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S", "SIM"]
+ignore = ["S101"]
+
+[tool.ruff.lint.per-file-ignores]
+"backend/tests/*" = ["S603", "S105", "S106"]

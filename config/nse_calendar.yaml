@@ -1,0 +1,21 @@
+# NSE equity-derivatives trading calendar.
+#
+# Fill each year's holidays ONLY from the official NSE holiday circular
+# (nseindia.com -> Resources -> Exchange Communication -> Holidays).
+# A year that is missing or left empty makes the bot refuse to trade on that year's
+# dates (CalendarUnavailable). This is deliberate: the bot never guesses holidays.
+#
+# Format:
+# holidays:
+#   2027:
+#     - {date: 2027-01-26, name: Republic Day}
+
+market_hours:
+  open: "09:15"
+  close: "15:30"
+
+holidays:
+  2026:   # TODO: fill from the official NSE 2026 circular before paper trading
+  2027:   # TODO: fill when NSE publishes the 2027 list
+
+special_sessions: []
